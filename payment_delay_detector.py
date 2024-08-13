@@ -125,7 +125,6 @@ if option == "Upload Dataset":
             elif selected_model_name == 'Adaboost':
                 # AdaBoost does not have direct feature_names_ or feature_importances_ accessible
                 st.write("AdaBoost tidak mendukung akses langsung ke feature importances atau feature_names_.")
-                return
             elif selected_model_name == 'LightGBM':
                 importance = model.feature_importances_
                 feature_names = model.booster_.feature_name()
