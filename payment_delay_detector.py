@@ -185,7 +185,7 @@ elif option == "Input Data Baru":
         if tenure == 0 or amt_instalment == 0:
             st.warning("Harap isi semua input numerik.")
         else:
-            # Prepare input data for prediction
+            # Create input data for prediction
             input_data = {
                 'REGION_AREA': selected_region,
                 'DISTRICT_POS': selected_district,
@@ -203,35 +203,27 @@ elif option == "Input Data Baru":
                 'AMT_INSTALMENT': amt_instalment,
                 'TENURE': tenure
             }
+
+            # Convert input data to DataFrame
             input_df = pd.DataFrame([input_data])
 
             # Encode categorical variables
-            label_encoders = {}
-            categorical_columns = input_df.select_dtypes(include=['object']).columns
-            for column in categorical_columns:
+            for column in input_df.select_dtypes(include=['object']).columns:
                 le = LabelEncoder()
-                input_df[column] = le.fit_transform(input_df[column])
+                le.fit(df[column].astype(str))  # Fit encoder on the original dataset
+                input_df[column] = le.transform(input_df[column].astype(str))
 
-            # Drop DATE_PAY_FIRST and DATE_PAY_LAST from df
+            # Drop DATE_PAY_FIRST and DATE_PAY_LAST if they exist in the input data
             input_df = input_df.drop(columns=['DATE_PAY_FIRST', 'DATE_PAY_LAST'], errors='ignore')
 
-            # Tentukan nama fitur sesuai model yang dipilih
             if selected_model_name == 'XGBoost':
-                model_feature_names = model.get_booster().feature_names
-            elif selected_model_name == 'Adaboost':
-                model_feature_names = model.feature_names_
+                input_df = input_df[model.get_booster().feature_names]
             elif selected_model_name == 'LightGBM':
-                model_feature_names = model.booster_.feature_name()
-
-            # Pilih kolom fitur yang relevan dari input_df
-            input_df = input_df[model_feature_names]
-
-            # Reshape the input data for prediction
-            input_data_reshaped = input_df.values.reshape(1, -1)
+                input_df = input_df[model.feature_name()]
 
             # Predict FLAG_DELINQUENT
-            predicted_flag_delinquent = model.predict(input_data_reshaped)
-            predicted_probabilities = model.predict_proba(input_data_reshaped)
+            predicted_flag_delinquent = model.predict(input_df)
+            predicted_proba = model.predict_proba(input_df)[:, 1]
 
             # Display prediction
             st.subheader('Prediksi FLAG_DELINQUENT')
