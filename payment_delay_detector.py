@@ -43,6 +43,7 @@ if option == "Upload Dataset":
         st.write("Dataset yang diunggah:")
         st.write(df.head())
 
+        
         # Save original data for display
         df_original = df.copy()
 
@@ -53,22 +54,18 @@ if option == "Upload Dataset":
             df_encoded[column] = le.fit_transform(df_encoded[column])
 
         # Drop DATE_PAY_FIRST and DATE_PAY_LAST
-        df_encoded = df_encoded.drop(columns=['DATE_PAY_FIRST', 'DATE_PAY_LAST'], errors='ignore')
+        df_encoded = df_encoded.drop(columns=['DATE_PAY_FIRST', 'DATE_PAY_LAST'])
 
         X_test = df_encoded.drop(columns=['FLAG_DELINQUENT'])
         y_test = df_encoded['FLAG_DELINQUENT']
 
-        # Check for model type and adjust feature names accordingly
         if selected_model_name == 'XGBoost':
-            model_feature_names = model.get_booster().feature_names
-            st.write(f"Model feature names: {model_feature_names}")
-            X_test = X_test[model_feature_names]
+            X_test = X_test[model.get_booster().feature_names]
         elif selected_model_name == 'Adaboost':
-            model_feature_names = X_test.columns.tolist()
-            st.write(f"Model feature names: {model_feature_names}")
+            model_feature_names = model.feature_names_
+            X_test = X_test[model_feature_names]
         elif selected_model_name == 'LightGBM':
-            model_feature_names = model.feature_name()
-            st.write(f"Model feature names: {model_feature_names}")
+            model_feature_names = model.booster_.feature_name()  # Fixed method
             X_test = X_test[model_feature_names]
 
         # Input to select a row from X_test
@@ -86,8 +83,7 @@ if option == "Upload Dataset":
                 st.write(input_data.to_frame().T)
 
                 # Predict FLAG_DELINQUENT
-                input_row = X_test.iloc[[selected_index]]
-                predicted_flag_delinquent = model.predict(input_row)
+                predicted_flag_delinquent = model.predict(X_test.iloc[[selected_index]])
 
                 # Display prediction
                 st.subheader('Prediksi FLAG_DELINQUENT')
@@ -128,30 +124,19 @@ if option == "Upload Dataset":
                 feature_names = list(importance.keys())
                 feature_importances = list(importance.values())
             elif selected_model_name == 'Adaboost':
-                feature_names = X_test.columns.tolist()
-                feature_importances = model.feature_importances_
+                feature_names = model.feature_names_
+                feature_importances = model.get_feature_importance()
             elif selected_model_name == 'LightGBM':
-                importance = model.feature_importances_
-                feature_names = model.feature_name()
+                importance = model.feature_importances_  # Fixed method
+                feature_names = model.booster_.feature_name()  # Fixed method
                 feature_importances = importance
 
-            # Combine feature names and their importances into a list of tuples
-            features_with_importance = list(zip(feature_importances, feature_names))
-
-            # Sort the list of tuples by importance in descending order
-            features_with_importance.sort(reverse=True, key=lambda x: x[0])
-
-            # Unpack the sorted list into two lists: feature_importances_sorted and feature_names_sorted
-            feature_importances_sorted, feature_names_sorted = zip(*features_with_importance)
-
-            # Plot feature importance in descending order
-            fig_feat, ax_feat = plt.subplots(figsize=(10, 8))
-            sns.barplot(x=feature_importances_sorted, y=feature_names_sorted, ax=ax_feat)
+            fig_feat, ax_feat = plt.subplots()
+            ax_feat.barh(feature_names, feature_importances, align='center')
+            ax_feat.set_yticks(range(len(feature_names)))
+            ax_feat.set_yticklabels(feature_names)
+            ax_feat.set_xlabel('Feature Importance')
             ax_feat.set_title('Feature Importance')
-            ax_feat.set_xlabel('Importance')
-            ax_feat.set_ylabel('Feature')
-
-            # Display the plot in Streamlit
             st.pyplot(fig_feat)
 
 elif option == "Input Data Baru":
@@ -183,12 +168,13 @@ elif option == "Input Data Baru":
     amt_instalment = st.number_input('Amount Instalment', min_value=0.0, value=0.0)
     tenure = st.number_input('Tenure', min_value=0, value=0)
 
-    # Make predictions based on the user input
-    if st.button('Predict'):
-        if tenure == 0 or amt_instalment == 0:
-            st.warning("Harap isi semua input numerik.")
+    # Button to predict and show evaluation
+    if st.button('Predict and Show Interpretation'):
+        # Check for missing inputs
+        if tenure == 0 or amt_instalment == 0.0 or amt_outstanding_principal == 0.0:
+            st.error("Harap isi semua data dengan benar.")
         else:
-            # Create input data for prediction
+            # Prepare input data for prediction
             input_data = {
                 'REGION_AREA': selected_region,
                 'DISTRICT_POS': selected_district,
@@ -206,84 +192,91 @@ elif option == "Input Data Baru":
                 'AMT_INSTALMENT': amt_instalment,
                 'TENURE': tenure
             }
-
-            # Convert input data to DataFrame
             input_df = pd.DataFrame([input_data])
 
             # Encode categorical variables
-            for column in input_df.select_dtypes(include=['object']).columns:
+            label_encoders = {}
+            categorical_columns = input_df.select_dtypes(include=['object']).columns
+            for column in categorical_columns:
                 le = LabelEncoder()
-                le.fit(df[column].astype(str))  # Fit encoder on the original dataset
-                input_df[column] = le.transform(input_df[column].astype(str))
+                input_df[column] = le.fit_transform(input_df[column])
 
-            # Drop DATE_PAY_FIRST and DATE_PAY_LAST if they exist in the input data
+            # Drop DATE_PAY_FIRST and DATE_PAY_LAST from df
             input_df = input_df.drop(columns=['DATE_PAY_FIRST', 'DATE_PAY_LAST'], errors='ignore')
 
+            # Tentukan nama fitur sesuai model yang dipilih
             if selected_model_name == 'XGBoost':
-                input_df = input_df[model.get_booster().feature_names]
+                model_feature_names = model.get_booster().feature_names
+            elif selected_model_name == 'Adaboost':
+                model_feature_names = model.feature_names_
             elif selected_model_name == 'LightGBM':
-                input_df = input_df[model.feature_name()]
+                model_feature_names = model.booster_.feature_name()
+
+            # Pilih kolom fitur yang relevan dari input_df
+            input_df = input_df[model_feature_names]
+
+            # Reshape the input data for prediction
+            input_data_reshaped = input_df.values.reshape(1, -1)
 
             # Predict FLAG_DELINQUENT
-            predicted_flag_delinquent = model.predict(input_df)
-            predicted_proba = model.predict_proba(input_df)[:, 1]
+            predicted_flag_delinquent = model.predict(input_data_reshaped)
+            predicted_probabilities = model.predict_proba(input_data_reshaped)
 
             # Display prediction
             st.subheader('Prediksi FLAG_DELINQUENT')
-            st.write(f"Predicted: {predicted_flag_delinquent[0]}")
-            st.write(f"Probabilitas: {predicted_proba[0]:.4f}")
 
-            # Display classification report and ROC AUC if available
-            st.subheader(f"{selected_model_name} Results:")
-            y_pred = model.predict(X_test)
-            st.text(classification_report(y_test, y_pred))
+            # Determine prediction
+            prediction_label = 'Terjadi Keterlambatan' if predicted_flag_delinquent[0] == 1 else 'Tidak Terjadi Keterlambatan'
+            prediction_color = '#F44336' if predicted_flag_delinquent[0] == 1 else '#4CAF50'
 
-            # Display ROC AUC curve
-            st.subheader('ROC AUC Curve')
-            y_pred_proba = model.predict_proba(X_test)[:, 1]
-            fpr, tpr, _ = roc_curve(y_test, y_pred_proba)
-            roc_auc = roc_auc_score(y_test, y_pred_proba)
+            # Display prediction with a colored indicator
+            st.markdown(f"**Prediksi:** <span style='color:{prediction_color};'>{prediction_label}</span>", unsafe_allow_html=True)
 
-            fig_roc, ax_roc = plt.subplots()
-            ax_roc.plot(fpr, tpr, color='darkorange', lw=2, label='ROC curve (area = %0.2f)' % roc_auc)
-            ax_roc.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
-            ax_roc.set_xlim([0.0, 1.0])
-            ax_roc.set_ylim([0.0, 1.05])
-            ax_roc.set_xlabel('False Positive Rate')
-            ax_roc.set_ylabel('True Positive Rate')
-            ax_roc.set_title('Receiver Operating Characteristic')
-            ax_roc.legend(loc="lower right")
-            st.pyplot(fig_roc)
+            # Display probabilities
+            prob_labels = ['Tidak Terjadi Keterlambatan', 'Terjadi Keterlambatan']
+            prob_values = [predicted_probabilities[0][0], predicted_probabilities[0][1]]
 
-            # Display Feature Importance
+            # Display probabilities with the word "Probabilitas"
+            for label, value in zip(prob_labels, prob_values):
+                st.markdown(f"**Probabilitas {label}:** {value:.2f}")
+
+            # Recommendation based on prediction
+            st.subheader('Rekomendasi Tindakan')
+            if predicted_flag_delinquent[0] == 1:
+                st.write("Rekomendasi: Pertimbangkan untuk memberikan pengingat pembayaran kepada pelanggan.")
+            else:
+                st.write("Rekomendasi: Pelanggan ini diprediksi tidak akan terlambat membayar.")
+
+            # Feature Importance for explanation
             st.subheader('Feature Importance')
+            
+            # Get feature importances from the model
             if selected_model_name == 'XGBoost':
                 importance = model.get_booster().get_score(importance_type='weight')
                 feature_names = list(importance.keys())
                 feature_importances = list(importance.values())
             elif selected_model_name == 'Adaboost':
-                feature_names = input_df.columns.tolist()
+                feature_names = X_test.columns
                 feature_importances = model.feature_importances_
             elif selected_model_name == 'LightGBM':
-                importance = model.feature_importances_
-                feature_names = model.feature_name()
-                feature_importances = importance
-
+                feature_names = model.booster_.feature_name()
+                feature_importances = model.feature_importances_
+            
             # Combine feature names and their importances into a list of tuples
             features_with_importance = list(zip(feature_importances, feature_names))
-
+            
             # Sort the list of tuples by importance in descending order
             features_with_importance.sort(reverse=True, key=lambda x: x[0])
-
+            
             # Unpack the sorted list into two lists: feature_importances_sorted and feature_names_sorted
             feature_importances_sorted, feature_names_sorted = zip(*features_with_importance)
-
+            
             # Plot feature importance in descending order
             fig_feat, ax_feat = plt.subplots(figsize=(10, 8))
             sns.barplot(x=feature_importances_sorted, y=feature_names_sorted, ax=ax_feat)
             ax_feat.set_title('Feature Importance')
             ax_feat.set_xlabel('Importance')
             ax_feat.set_ylabel('Feature')
-
+            
             # Display the plot in Streamlit
             st.pyplot(fig_feat)
