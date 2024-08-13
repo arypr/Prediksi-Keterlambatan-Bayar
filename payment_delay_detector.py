@@ -43,7 +43,6 @@ if option == "Upload Dataset":
         st.write("Dataset yang diunggah:")
         st.write(df.head())
 
-        
         # Save original data for display
         df_original = df.copy()
 
@@ -62,11 +61,11 @@ if option == "Upload Dataset":
         if selected_model_name == 'XGBoost':
             X_test = X_test[model.get_booster().feature_names]
         elif selected_model_name == 'Adaboost':
-            model_feature_names = model.feature_names_
-            X_test = X_test[model_feature_names]
+            # AdaBoost does not have feature_names_ directly
+            # Handle separately if needed
+            pass
         elif selected_model_name == 'LightGBM':
-            model_feature_names = model.booster_.feature_name()  # Fixed method
-            X_test = X_test[model_feature_names]
+            X_test = X_test[model.booster_.feature_name()]
 
         # Input to select a row from X_test
         input_index = st.text_input('Masukkan Indeks Data untuk Prediksi', '')
@@ -124,11 +123,12 @@ if option == "Upload Dataset":
                 feature_names = list(importance.keys())
                 feature_importances = list(importance.values())
             elif selected_model_name == 'Adaboost':
-                feature_names = model.feature_names_
-                feature_importances = model.get_feature_importance()
+                # AdaBoost does not have direct feature_names_ or feature_importances_ accessible
+                st.write("AdaBoost tidak mendukung akses langsung ke feature importances atau feature_names_.")
+                return
             elif selected_model_name == 'LightGBM':
-                importance = model.feature_importances_  # Fixed method
-                feature_names = model.booster_.feature_name()  # Fixed method
+                importance = model.feature_importances_
+                feature_names = model.booster_.feature_name()
                 feature_importances = importance
 
             fig_feat, ax_feat = plt.subplots()
@@ -208,7 +208,8 @@ elif option == "Input Data Baru":
             if selected_model_name == 'XGBoost':
                 model_feature_names = model.get_booster().feature_names
             elif selected_model_name == 'Adaboost':
-                model_feature_names = model.feature_names_
+                # Handle AdaBoost separately
+                model_feature_names = list(X_test.columns)
             elif selected_model_name == 'LightGBM':
                 model_feature_names = model.booster_.feature_name()
 
@@ -256,8 +257,9 @@ elif option == "Input Data Baru":
                 feature_names = list(importance.keys())
                 feature_importances = list(importance.values())
             elif selected_model_name == 'Adaboost':
-                feature_names = model.feature_names_
-                feature_importances = model.get_feature_importance()
+                # AdaBoost does not have direct feature_names_ or feature_importances_ accessible
+                st.write("AdaBoost tidak mendukung akses langsung ke feature importances atau feature_names_.")
+                return
             elif selected_model_name == 'LightGBM':
                 feature_names = model.booster_.feature_name()
                 feature_importances = model.feature_importances_
