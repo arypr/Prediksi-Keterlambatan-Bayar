@@ -2,9 +2,8 @@ import streamlit as st
 import pandas as pd
 import joblib
 import seaborn as sns
-import catboost
 import matplotlib.pyplot as plt
-from catboost import CatBoostClassifier
+from sklearn.ensemble import AdaBoostClassifier
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import classification_report, roc_auc_score, roc_curve
 
@@ -19,7 +18,7 @@ st.title("Prediksi Keterlambatan Bayar")
 st.sidebar.subheader('Pilih Model yang Akan Digunakan')
 models = {
     'XGBoost': 'xgboost_smote_model.pkl',
-    'catboost Classifier': 'catboostclass_smote_model.pkl',
+    'Adaboost': 'ada_smote_model.pkl',
     'LightGBM': 'lgbm_smote_model.pkl'
 }
 selected_model_name = st.sidebar.selectbox('', list(models.keys()))
@@ -62,7 +61,7 @@ if option == "Upload Dataset":
 
         if selected_model_name == 'XGBoost':
             X_test = X_test[model.get_booster().feature_names]
-        elif selected_model_name == 'catboost Classifier':
+        elif selected_model_name == 'Adaboost':
             model_feature_names = model.feature_names_
             X_test = X_test[model_feature_names]
         elif selected_model_name == 'LightGBM':
@@ -124,7 +123,7 @@ if option == "Upload Dataset":
                 importance = model.get_booster().get_score(importance_type='weight')
                 feature_names = list(importance.keys())
                 feature_importances = list(importance.values())
-            elif selected_model_name == 'catboost Classifier':
+            elif selected_model_name == 'Adaboost':
                 feature_names = model.feature_names_
                 feature_importances = model.get_feature_importance()
             elif selected_model_name == 'LightGBM':
@@ -208,7 +207,7 @@ elif option == "Input Data Baru":
             # Tentukan nama fitur sesuai model yang dipilih
             if selected_model_name == 'XGBoost':
                 model_feature_names = model.get_booster().feature_names
-            elif selected_model_name == 'catboost Classifier':
+            elif selected_model_name == 'Adaboost':
                 model_feature_names = model.feature_names_
             elif selected_model_name == 'LightGBM':
                 model_feature_names = model.booster_.feature_name()
@@ -256,7 +255,7 @@ elif option == "Input Data Baru":
                 importance = model.get_booster().get_score(importance_type='weight')
                 feature_names = list(importance.keys())
                 feature_importances = list(importance.values())
-            elif selected_model_name == 'catboost Classifier':
+            elif selected_model_name == 'Adaboost':
                 feature_names = model.feature_names_
                 feature_importances = model.get_feature_importance()
             elif selected_model_name == 'LightGBM':
