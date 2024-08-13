@@ -7,5 +7,5 @@ scikit-learn
 openpyxl
 joblib
 xgboost
-catboost
+catboost==1.2.5
 lightgbm
