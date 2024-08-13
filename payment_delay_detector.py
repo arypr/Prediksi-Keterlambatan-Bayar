@@ -167,7 +167,7 @@ elif option == "Input Data Baru":
     # Button to predict and show evaluation
     if st.button('Predict and Show Interpretation'):
         # Check for missing inputs
-        if tenure == 0 or amt_instalment == 0.0 atau amt_outstanding_principal == 0.0:
+        if tenure == 0 or amt_instalment == 0.0 or amt_outstanding_principal == 0.0:
             st.error("Harap isi semua data dengan benar.")
         else:
             # Prepare input data for prediction
