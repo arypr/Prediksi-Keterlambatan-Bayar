@@ -231,13 +231,6 @@ elif option == "Input Data Baru":
             for label, value in zip(prob_labels, prob_values):
                 st.markdown(f"**Probabilitas {label}:** {value:.2f}")
 
-            # Recommendation based on prediction
-            st.subheader('Rekomendasi Tindakan')
-            if predicted_flag_delinquent[0] == 1:
-                st.write("Rekomendasi: Pertimbangkan untuk memberikan pengingat pembayaran kepada pelanggan.")
-            else:
-                st.write("Rekomendasi: Pelanggan ini diprediksi tidak akan terlambat membayar.")
-
             # Feature Importance for explanation
             st.subheader('Feature Importance')
 
