@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import joblib
 import seaborn as sns
+import catboost
 import matplotlib.pyplot as plt
 from catboost import CatBoostClassifier
 from sklearn.preprocessing import LabelEncoder
