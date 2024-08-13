@@ -227,21 +227,8 @@ elif option == "Input Data Baru":
 
             # Display prediction
             st.subheader('Prediksi FLAG_DELINQUENT')
-
-            # Determine prediction
-            prediction_label = 'Terjadi Keterlambatan' if predicted_flag_delinquent[0] == 1 else 'Tidak Terjadi Keterlambatan'
-            prediction_color = '#F44336' if predicted_flag_delinquent[0] == 1 else '#4CAF50'
-
-            # Display prediction with a colored indicator
-            st.markdown(f"**Prediksi:** <span style='color:{prediction_color};'>{prediction_label}</span>", unsafe_allow_html=True)
-
-            # Display probabilities
-            prob_labels = ['Tidak Terjadi Keterlambatan', 'Terjadi Keterlambatan']
-            prob_values = [predicted_probabilities[0][0], predicted_probabilities[0][1]]
-
-            # Display probabilities with the word "Probabilitas"
-            for label, value in zip(prob_labels, prob_values):
-                st.markdown(f"**Probabilitas {label}:** {value:.2f}")
+            st.write(f"Predicted: {predicted_flag_delinquent[0]}")
+            st.write(f"Probabilitas: {predicted_proba[0]:.4f}")
 
             # Display Feature Importance
             st.subheader('Feature Importance')
@@ -276,4 +263,3 @@ elif option == "Input Data Baru":
 
             # Display the plot in Streamlit
             st.pyplot(fig_feat)
-    
