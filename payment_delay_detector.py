@@ -61,11 +61,10 @@ if option == "Upload Dataset":
         if selected_model_name == 'XGBoost':
             X_test = X_test[model.get_booster().feature_names]
         elif selected_model_name == 'Adaboost':
-            # AdaBoost does not have feature_names_ directly
-            # Handle separately if needed
-            pass
+            model_feature_names = X_test.columns.tolist()
         elif selected_model_name == 'LightGBM':
-            X_test = X_test[model.booster_.feature_name()]
+            model_feature_names = model.booster_.feature_name()
+            X_test = X_test[model_feature_names]
 
         # Input to select a row from X_test
         input_index = st.text_input('Masukkan Indeks Data untuk Prediksi', '')
@@ -123,19 +122,32 @@ if option == "Upload Dataset":
                 feature_names = list(importance.keys())
                 feature_importances = list(importance.values())
             elif selected_model_name == 'Adaboost':
-                # AdaBoost does not have direct feature_names_ or feature_importances_ accessible
-                st.write("AdaBoost tidak mendukung akses langsung ke feature importances atau feature_names_.")
+                # AdaBoost does not provide feature importances directly
+                # Create a dummy feature importances list if necessary
+                feature_names = X_test.columns.tolist()
+                feature_importances = model.feature_importances_
             elif selected_model_name == 'LightGBM':
                 importance = model.feature_importances_
                 feature_names = model.booster_.feature_name()
                 feature_importances = importance
 
-            fig_feat, ax_feat = plt.subplots()
-            ax_feat.barh(feature_names, feature_importances, align='center')
-            ax_feat.set_yticks(range(len(feature_names)))
-            ax_feat.set_yticklabels(feature_names)
-            ax_feat.set_xlabel('Feature Importance')
+            # Combine feature names and their importances into a list of tuples
+            features_with_importance = list(zip(feature_importances, feature_names))
+
+            # Sort the list of tuples by importance in descending order
+            features_with_importance.sort(reverse=True, key=lambda x: x[0])
+
+            # Unpack the sorted list into two lists: feature_importances_sorted and feature_names_sorted
+            feature_importances_sorted, feature_names_sorted = zip(*features_with_importance)
+
+            # Plot feature importance in descending order
+            fig_feat, ax_feat = plt.subplots(figsize=(10, 8))
+            sns.barplot(x=feature_importances_sorted, y=feature_names_sorted, ax=ax_feat)
             ax_feat.set_title('Feature Importance')
+            ax_feat.set_xlabel('Importance')
+            ax_feat.set_ylabel('Feature')
+
+            # Display the plot in Streamlit
             st.pyplot(fig_feat)
 
 elif option == "Input Data Baru":
@@ -170,8 +182,8 @@ elif option == "Input Data Baru":
     # Button to predict and show evaluation
     if st.button('Predict and Show Interpretation'):
         # Check for missing inputs
-        if tenure == 0 or amt_instalment == 0.0 or amt_outstanding_principal == 0.0:
-            st.error("Harap isi semua data dengan benar.")
+        if tenure == 0 or amt_instalment == 0:
+            st.warning("Harap isi semua input numerik.")
         else:
             # Prepare input data for prediction
             input_data = {
@@ -207,8 +219,7 @@ elif option == "Input Data Baru":
             if selected_model_name == 'XGBoost':
                 model_feature_names = model.get_booster().feature_names
             elif selected_model_name == 'Adaboost':
-                # Handle AdaBoost separately
-                model_feature_names = list(X_test.columns)
+                model_feature_names = model.feature_names_
             elif selected_model_name == 'LightGBM':
                 model_feature_names = model.booster_.feature_name()
 
@@ -240,28 +251,20 @@ elif option == "Input Data Baru":
             for label, value in zip(prob_labels, prob_values):
                 st.markdown(f"**Probabilitas {label}:** {value:.2f}")
 
-            # Recommendation based on prediction
-            st.subheader('Rekomendasi Tindakan')
-            if predicted_flag_delinquent[0] == 1:
-                st.write("Rekomendasi: Pertimbangkan untuk memberikan pengingat pembayaran kepada pelanggan.")
-            else:
-                st.write("Rekomendasi: Pelanggan ini diprediksi tidak akan terlambat membayar.")
-
-            # Feature Importance for explanation
+            # Display Feature Importance
             st.subheader('Feature Importance')
-
-            # Get feature importances from the model
             if selected_model_name == 'XGBoost':
                 importance = model.get_booster().get_score(importance_type='weight')
                 feature_names = list(importance.keys())
                 feature_importances = list(importance.values())
             elif selected_model_name == 'Adaboost':
-                # AdaBoost does not have direct feature_names_ or feature_importances_ accessible
-                st.write("AdaBoost tidak mendukung akses langsung ke feature importances atau feature_names_.")
-                return
-            elif selected_model_name == 'LightGBM':
-                feature_names = model.booster_.feature_name()
+                # AdaBoost feature importances
+                feature_names = input_df.columns.tolist()
                 feature_importances = model.feature_importances_
+            elif selected_model_name == 'LightGBM':
+                importance = model.feature_importances_
+                feature_names = model.feature_name()
+                feature_importances = importance
 
             # Combine feature names and their importances into a list of tuples
             features_with_importance = list(zip(feature_importances, feature_names))
@@ -281,3 +284,4 @@ elif option == "Input Data Baru":
 
             # Display the plot in Streamlit
             st.pyplot(fig_feat)
+    
