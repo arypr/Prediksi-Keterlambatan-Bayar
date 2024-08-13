@@ -53,17 +53,19 @@ if option == "Upload Dataset":
             df_encoded[column] = le.fit_transform(df_encoded[column])
 
         # Drop DATE_PAY_FIRST and DATE_PAY_LAST
-        df_encoded = df_encoded.drop(columns=['DATE_PAY_FIRST', 'DATE_PAY_LAST'])
+        df_encoded = df_encoded.drop(columns=['DATE_PAY_FIRST', 'DATE_PAY_LAST'], errors='ignore')
 
         X_test = df_encoded.drop(columns=['FLAG_DELINQUENT'])
         y_test = df_encoded['FLAG_DELINQUENT']
 
+        # Check for model type and adjust feature names accordingly
         if selected_model_name == 'XGBoost':
-            X_test = X_test[model.get_booster().feature_names]
+            model_feature_names = model.get_booster().feature_names
+            X_test = X_test[model_feature_names]
         elif selected_model_name == 'Adaboost':
-            model_feature_names = X_test.columns.tolist()
+            model_feature_names = X_test.columns.tolist()  # AdaBoost does not provide feature names directly
         elif selected_model_name == 'LightGBM':
-            model_feature_names = model.booster_.feature_name()
+            model_feature_names = model.feature_name()
             X_test = X_test[model_feature_names]
 
         # Input to select a row from X_test
@@ -81,7 +83,8 @@ if option == "Upload Dataset":
                 st.write(input_data.to_frame().T)
 
                 # Predict FLAG_DELINQUENT
-                predicted_flag_delinquent = model.predict(X_test.iloc[[selected_index]])
+                input_row = X_test.iloc[[selected_index]]
+                predicted_flag_delinquent = model.predict(input_row)
 
                 # Display prediction
                 st.subheader('Prediksi FLAG_DELINQUENT')
@@ -122,13 +125,11 @@ if option == "Upload Dataset":
                 feature_names = list(importance.keys())
                 feature_importances = list(importance.values())
             elif selected_model_name == 'Adaboost':
-                # AdaBoost does not provide feature importances directly
-                # Create a dummy feature importances list if necessary
                 feature_names = X_test.columns.tolist()
                 feature_importances = model.feature_importances_
             elif selected_model_name == 'LightGBM':
                 importance = model.feature_importances_
-                feature_names = model.booster_.feature_name()
+                feature_names = model.feature_name()
                 feature_importances = importance
 
             # Combine feature names and their importances into a list of tuples
@@ -179,9 +180,8 @@ elif option == "Input Data Baru":
     amt_instalment = st.number_input('Amount Instalment', min_value=0.0, value=0.0)
     tenure = st.number_input('Tenure', min_value=0, value=0)
 
-    # Button to predict and show evaluation
-    if st.button('Predict and Show Interpretation'):
-        # Check for missing inputs
+    # Make predictions based on the user input
+    if st.button('Predict'):
         if tenure == 0 or amt_instalment == 0:
             st.warning("Harap isi semua input numerik.")
         else:
@@ -230,6 +230,28 @@ elif option == "Input Data Baru":
             st.write(f"Predicted: {predicted_flag_delinquent[0]}")
             st.write(f"Probabilitas: {predicted_proba[0]:.4f}")
 
+            # Display classification report and ROC AUC if available
+            st.subheader(f"{selected_model_name} Results:")
+            y_pred = model.predict(X_test)
+            st.text(classification_report(y_test, y_pred))
+
+            # Display ROC AUC curve
+            st.subheader('ROC AUC Curve')
+            y_pred_proba = model.predict_proba(X_test)[:, 1]
+            fpr, tpr, _ = roc_curve(y_test, y_pred_proba)
+            roc_auc = roc_auc_score(y_test, y_pred_proba)
+
+            fig_roc, ax_roc = plt.subplots()
+            ax_roc.plot(fpr, tpr, color='darkorange', lw=2, label='ROC curve (area = %0.2f)' % roc_auc)
+            ax_roc.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+            ax_roc.set_xlim([0.0, 1.0])
+            ax_roc.set_ylim([0.0, 1.05])
+            ax_roc.set_xlabel('False Positive Rate')
+            ax_roc.set_ylabel('True Positive Rate')
+            ax_roc.set_title('Receiver Operating Characteristic')
+            ax_roc.legend(loc="lower right")
+            st.pyplot(fig_roc)
+
             # Display Feature Importance
             st.subheader('Feature Importance')
             if selected_model_name == 'XGBoost':
@@ -237,7 +259,6 @@ elif option == "Input Data Baru":
                 feature_names = list(importance.keys())
                 feature_importances = list(importance.values())
             elif selected_model_name == 'Adaboost':
-                # AdaBoost feature importances
                 feature_names = input_df.columns.tolist()
                 feature_importances = model.feature_importances_
             elif selected_model_name == 'LightGBM':
