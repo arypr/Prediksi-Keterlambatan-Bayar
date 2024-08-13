@@ -61,11 +61,14 @@ if option == "Upload Dataset":
         # Check for model type and adjust feature names accordingly
         if selected_model_name == 'XGBoost':
             model_feature_names = model.get_booster().feature_names
+            st.write(f"Model feature names: {model_feature_names}")
             X_test = X_test[model_feature_names]
         elif selected_model_name == 'Adaboost':
-            model_feature_names = X_test.columns.tolist()  # AdaBoost does not provide feature names directly
+            model_feature_names = X_test.columns.tolist()
+            st.write(f"Model feature names: {model_feature_names}")
         elif selected_model_name == 'LightGBM':
             model_feature_names = model.feature_name()
+            st.write(f"Model feature names: {model_feature_names}")
             X_test = X_test[model_feature_names]
 
         # Input to select a row from X_test
