@@ -18,7 +18,6 @@ st.title("Prediksi Keterlambatan Bayar")
 st.sidebar.subheader('Pilih Model yang Akan Digunakan')
 models = {
     'XGBoost': 'xgboost_smote_model.pkl',
-    'Adaboost': 'ada_smote_model.pkl',
     'LightGBM': 'lgbm_smote_model.pkl'
 }
 selected_model_name = st.sidebar.selectbox('', list(models.keys()))
@@ -43,6 +42,7 @@ if option == "Upload Dataset":
         st.write("Dataset yang diunggah:")
         st.write(df.head())
 
+        
         # Save original data for display
         df_original = df.copy()
 
@@ -53,19 +53,15 @@ if option == "Upload Dataset":
             df_encoded[column] = le.fit_transform(df_encoded[column])
 
         # Drop DATE_PAY_FIRST and DATE_PAY_LAST
-        df_encoded = df_encoded.drop(columns=['DATE_PAY_FIRST', 'DATE_PAY_LAST'], errors='ignore')
+        df_encoded = df_encoded.drop(columns=['DATE_PAY_FIRST', 'DATE_PAY_LAST'])
 
         X_test = df_encoded.drop(columns=['FLAG_DELINQUENT'])
         y_test = df_encoded['FLAG_DELINQUENT']
 
-        # Sesuaikan nama fitur sesuai model yang dipilih
         if selected_model_name == 'XGBoost':
-            model_feature_names = model.get_booster().feature_names
-            X_test = X_test[model_feature_names]
-        elif selected_model_name == 'Adaboost':
-            model_feature_names = X_test.columns  # Ambil nama fitur dari data
+            X_test = X_test[model.get_booster().feature_names]
         elif selected_model_name == 'LightGBM':
-            model_feature_names = model.booster_.feature_name()
+            model_feature_names = model.booster_.feature_name()  # Fixed method
             X_test = X_test[model_feature_names]
 
         # Input to select a row from X_test
@@ -123,15 +119,16 @@ if option == "Upload Dataset":
                 importance = model.get_booster().get_score(importance_type='weight')
                 feature_names = list(importance.keys())
                 feature_importances = list(importance.values())
-            elif selected_model_name == 'Adaboost':
-                feature_names = X_test.columns  # Ambil nama fitur dari data
-                feature_importances = model.feature_importances_
             elif selected_model_name == 'LightGBM':
-                feature_names = model.booster_.feature_name()
-                feature_importances = model.feature_importances_
+                importance = model.feature_importances_  # Fixed method
+                feature_names = model.booster_.feature_name()  # Fixed method
+                feature_importances = importance
 
             fig_feat, ax_feat = plt.subplots()
-            sns.barplot(x=feature_importances, y=feature_names, ax=ax_feat)
+            ax_feat.barh(feature_names, feature_importances, align='center')
+            ax_feat.set_yticks(range(len(feature_names)))
+            ax_feat.set_yticklabels(feature_names)
+            ax_feat.set_xlabel('Feature Importance')
             ax_feat.set_title('Feature Importance')
             st.pyplot(fig_feat)
 
@@ -190,70 +187,84 @@ elif option == "Input Data Baru":
             }
             input_df = pd.DataFrame([input_data])
 
-            # Encode input_df
-            input_encoded = input_df.copy()
-            for column in input_encoded.select_dtypes(include=['object']).columns:
+            # Encode categorical variables
+            label_encoders = {}
+            categorical_columns = input_df.select_dtypes(include=['object']).columns
+            for column in categorical_columns:
                 le = LabelEncoder()
-                input_encoded[column] = le.fit_transform(input_encoded[column])
+                input_df[column] = le.fit_transform(input_df[column])
 
-            # Drop DATE_PAY_FIRST and DATE_PAY_LAST if present
-            input_encoded = input_encoded.drop(columns=['DATE_PAY_FIRST', 'DATE_PAY_LAST'], errors='ignore')
+            # Drop DATE_PAY_FIRST and DATE_PAY_LAST from df
+            input_df = input_df.drop(columns=['DATE_PAY_FIRST', 'DATE_PAY_LAST'], errors='ignore')
 
-            # Ensure input data columns match the model's expected features
-            input_encoded = input_encoded[model_feature_names]
+            # Tentukan nama fitur sesuai model yang dipilih
+            if selected_model_name == 'XGBoost':
+                model_feature_names = model.get_booster().feature_names
+            elif selected_model_name == 'LightGBM':
+                model_feature_names = model.booster_.feature_name()
 
-            # Reshape input data if necessary
-            input_data_reshaped = input_encoded
+            # Pilih kolom fitur yang relevan dari input_df
+            input_df = input_df[model_feature_names]
+
+            # Reshape the input data for prediction
+            input_data_reshaped = input_df.values.reshape(1, -1)
 
             # Predict FLAG_DELINQUENT
             predicted_flag_delinquent = model.predict(input_data_reshaped)
+            predicted_probabilities = model.predict_proba(input_data_reshaped)
 
             # Display prediction
             st.subheader('Prediksi FLAG_DELINQUENT')
-            st.write(f"Predicted: {predicted_flag_delinquent[0]}")
 
-            # Button to show model evaluation and interpretation
-            if st.button('Show Model Evaluation and Interpretation'):
-                # Handle missing values in new data (if any)
-                input_encoded.fillna(0, inplace=True)
+            # Determine prediction
+            prediction_label = 'Terjadi Keterlambatan' if predicted_flag_delinquent[0] == 1 else 'Tidak Terjadi Keterlambatan'
+            prediction_color = '#F44336' if predicted_flag_delinquent[0] == 1 else '#4CAF50'
 
-                # Predict FLAG_DELINQUENT for the new data
-                y_pred = model.predict(input_encoded)
+            # Display prediction with a colored indicator
+            st.markdown(f"**Prediksi:** <span style='color:{prediction_color};'>{prediction_label}</span>", unsafe_allow_html=True)
 
-                st.subheader(f"{selected_model_name} Results:")
-                st.text(classification_report(y_test, y_pred))
+            # Display probabilities
+            prob_labels = ['Tidak Terjadi Keterlambatan', 'Terjadi Keterlambatan']
+            prob_values = [predicted_probabilities[0][0], predicted_probabilities[0][1]]
 
-                # Display ROC AUC curve
-                st.subheader('ROC AUC Curve')
-                y_pred_proba = model.predict_proba(X_test)[:, 1]
-                fpr, tpr, _ = roc_curve(y_test, y_pred_proba)
-                roc_auc = roc_auc_score(y_test, y_pred_proba)
+            # Display probabilities with the word "Probabilitas"
+            for label, value in zip(prob_labels, prob_values):
+                st.markdown(f"**Probabilitas {label}:** {value:.2f}")
 
-                fig_roc, ax_roc = plt.subplots()
-                ax_roc.plot(fpr, tpr, color='darkorange', lw=2, label='ROC curve (area = %0.2f)' % roc_auc)
-                ax_roc.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
-                ax_roc.set_xlim([0.0, 1.0])
-                ax_roc.set_ylim([0.0, 1.05])
-                ax_roc.set_xlabel('False Positive Rate')
-                ax_roc.set_ylabel('True Positive Rate')
-                ax_roc.set_title('Receiver Operating Characteristic')
-                ax_roc.legend(loc="lower right")
-                st.pyplot(fig_roc)
+            # Recommendation based on prediction
+            st.subheader('Rekomendasi Tindakan')
+            if predicted_flag_delinquent[0] == 1:
+                st.write("Rekomendasi: Pertimbangkan untuk memberikan pengingat pembayaran kepada pelanggan.")
+            else:
+                st.write("Rekomendasi: Pelanggan ini diprediksi tidak akan terlambat membayar.")
 
-                # Display Feature Importance
-                st.subheader('Feature Importance')
-                if selected_model_name == 'XGBoost':
-                    importance = model.get_booster().get_score(importance_type='weight')
-                    feature_names = list(importance.keys())
-                    feature_importances = list(importance.values())
-                elif selected_model_name == 'Adaboost':
-                    feature_names = X_test.columns  # Ambil nama fitur dari data
-                    feature_importances = model.feature_importances_
-                elif selected_model_name == 'LightGBM':
-                    feature_names = model.booster_.feature_name()
-                    feature_importances = model.feature_importances_
+            # Feature Importance for explanation
+            st.subheader('Feature Importance')
 
-                fig_feat, ax_feat = plt.subplots()
-                sns.barplot(x=feature_importances, y=feature_names, ax=ax_feat)
-                ax_feat.set_title('Feature Importance')
-                st.pyplot(fig_feat)
+            # Get feature importances from the model
+            if selected_model_name == 'XGBoost':
+                importance = model.get_booster().get_score(importance_type='weight')
+                feature_names = list(importance.keys())
+                feature_importances = list(importance.values())
+            elif selected_model_name == 'LightGBM':
+                feature_names = model.booster_.feature_name()
+                feature_importances = model.feature_importances_
+
+            # Combine feature names and their importances into a list of tuples
+            features_with_importance = list(zip(feature_importances, feature_names))
+
+            # Sort the list of tuples by importance in descending order
+            features_with_importance.sort(reverse=True, key=lambda x: x[0])
+
+            # Unpack the sorted list into two lists: feature_importances_sorted and feature_names_sorted
+            feature_importances_sorted, feature_names_sorted = zip(*features_with_importance)
+
+            # Plot feature importance in descending order
+            fig_feat, ax_feat = plt.subplots(figsize=(10, 8))
+            sns.barplot(x=feature_importances_sorted, y=feature_names_sorted, ax=ax_feat)
+            ax_feat.set_title('Feature Importance')
+            ax_feat.set_xlabel('Importance')
+            ax_feat.set_ylabel('Feature')
+
+            # Display the plot in Streamlit
+            st.pyplot(fig_feat)
