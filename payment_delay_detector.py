@@ -208,45 +208,14 @@ elif option == "Input Data Baru":
             if selected_model_name == 'XGBoost':
                 model_feature_names = model.get_booster().feature_names
             elif selected_model_name == 'Adaboost':
-                model_feature_names = model.feature_names_
+                model_feature_names = X_test.columns  # Ambil nama fitur dari data
             elif selected_model_name == 'LightGBM':
                 model_feature_names = model.booster_.feature_name()
-
-            # Pilih kolom fitur yang relevan dari input_df
-            input_df = input_df[model_feature_names]
-
-            # Reshape the input data for prediction
-            input_data_reshaped = input_df.values.reshape(1, -1)
-
+            
             # Predict FLAG_DELINQUENT
             predicted_flag_delinquent = model.predict(input_data_reshaped)
             predicted_probabilities = model.predict_proba(input_data_reshaped)
-
-            # Display prediction
-            st.subheader('Prediksi FLAG_DELINQUENT')
-
-            # Determine prediction
-            prediction_label = 'Terjadi Keterlambatan' if predicted_flag_delinquent[0] == 1 else 'Tidak Terjadi Keterlambatan'
-            prediction_color = '#F44336' if predicted_flag_delinquent[0] == 1 else '#4CAF50'
-
-            # Display prediction with a colored indicator
-            st.markdown(f"**Prediksi:** <span style='color:{prediction_color};'>{prediction_label}</span>", unsafe_allow_html=True)
-
-            # Display probabilities
-            prob_labels = ['Tidak Terjadi Keterlambatan', 'Terjadi Keterlambatan']
-            prob_values = [predicted_probabilities[0][0], predicted_probabilities[0][1]]
-
-            # Display probabilities with the word "Probabilitas"
-            for label, value in zip(prob_labels, prob_values):
-                st.markdown(f"**Probabilitas {label}:** {value:.2f}")
-
-            # Recommendation based on prediction
-            st.subheader('Rekomendasi Tindakan')
-            if predicted_flag_delinquent[0] == 1:
-                st.write("Rekomendasi: Pertimbangkan untuk memberikan pengingat pembayaran kepada pelanggan.")
-            else:
-                st.write("Rekomendasi: Pelanggan ini diprediksi tidak akan terlambat membayar.")
-
+            
             # Feature Importance for explanation
             st.subheader('Feature Importance')
             
@@ -256,7 +225,7 @@ elif option == "Input Data Baru":
                 feature_names = list(importance.keys())
                 feature_importances = list(importance.values())
             elif selected_model_name == 'Adaboost':
-                feature_names = X_test.columns
+                feature_names = model_feature_names
                 feature_importances = model.feature_importances_
             elif selected_model_name == 'LightGBM':
                 feature_names = model.booster_.feature_name()
