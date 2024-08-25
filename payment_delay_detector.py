@@ -12,7 +12,7 @@ data_path = 'credit_scoring.xlsx'
 df = pd.read_excel(data_path)
 
 # Title of the app
-st.title("Prediksi Keterlambatan Bayar")
+st.title("Klasifikasi Keterlambatan Bayar")
 
 # Dropdown khusus untuk pemilihan model
 st.sidebar.subheader('Pilih Model yang Akan Digunakan')
