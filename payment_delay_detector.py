@@ -127,7 +127,7 @@ if option == "Upload Dataset":
             st.pyplot(fig_feat)
 
 elif option == "Input Data Baru":
-    st.subheader('Masukkan Data untuk Prediksi')
+    st.subheader('Masukkan data yang akan diproses')
     
     # Masukkan input data sesuai fitur yang dipilih
     selected_region = st.selectbox('Pilih Region Area', df['REGION_AREA'].unique())
