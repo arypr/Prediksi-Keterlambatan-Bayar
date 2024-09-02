@@ -16,8 +16,8 @@ st.title("Klasifikasi Keterlambatan Bayar")
 # Dropdown khusus untuk pemilihan model
 st.sidebar.subheader('Pilih Model yang Akan Digunakan')
 models = {
-    'XGBoost': 'model_xgb.pkl',
-    'LightGBM': 'model_lgb.pkl'
+    'XGBoost': 'model_xgb1.pkl',
+    'LightGBM': 'model_lgb1.pkl'
 }
 selected_model_name = st.sidebar.selectbox('', list(models.keys()))
 model_path = models[selected_model_name]
