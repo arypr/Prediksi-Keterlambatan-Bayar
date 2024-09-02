@@ -131,12 +131,12 @@ elif option == "Input Data Baru":
     
     # Masukkan input data sesuai fitur yang dipilih
     selected_region = st.selectbox('Pilih Region Area', df['REGION_AREA'].unique())
+    payment_ratio = df[df['REGION_AREA'] == selected_region]['PAYMENT_RATIO'].mean()
     st.write(f"PAYMENT_RATIO untuk {selected_region} adalah: {payment_ratio:.2f}")
     selected_business_area = st.selectbox('Pilih Business Area', df['NAME_SALES_BUSINESS_AREA'].unique())
     selected_family_status = st.selectbox('Pilih Family Status', df['NAME_FAMILY_STATUS'].unique())
     selected_client_type = st.selectbox('Pilih Client Type', df['CLIENT_TYPE'].unique())
     
-    payment_ratio = df[df['REGION_AREA'] == selected_region]['PAYMENT_RATIO'].mean()
     amt_outstanding_total = st.number_input('Amount Outstanding Total', min_value=0.0, value=0.0)
     age = st.number_input('Age', min_value=0, value=0)
 
