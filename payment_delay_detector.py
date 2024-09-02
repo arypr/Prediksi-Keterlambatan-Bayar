@@ -7,7 +7,7 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import classification_report, roc_auc_score, roc_curve
 
 # Load data
-data_path = 'credit_scoring.xlsx'
+data_path = 'scoring1.xlsx'
 df = pd.read_excel(data_path)
 
 # Title of the app
@@ -16,8 +16,8 @@ st.title("Klasifikasi Keterlambatan Bayar")
 # Dropdown khusus untuk pemilihan model
 st.sidebar.subheader('Pilih Model yang Akan Digunakan')
 models = {
-    'XGBoost': 'xgboost_smote_model.pkl',
-    'LightGBM': 'lgbm_smote_model.pkl'
+    'XGBoost': 'model_xgb.pkl',
+    'LightGBM': 'model_lgb.pkl'
 }
 selected_model_name = st.sidebar.selectbox('', list(models.keys()))
 model_path = models[selected_model_name]
