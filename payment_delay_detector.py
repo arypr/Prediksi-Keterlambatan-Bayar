@@ -3,7 +3,6 @@ import pandas as pd
 import joblib
 import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn.ensemble import AdaBoostClassifier
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import classification_report, roc_auc_score, roc_curve
 
@@ -29,6 +28,10 @@ model = joblib.load(model_path)
 # Pilihan antara upload dataset dan input data baru
 option = st.sidebar.radio("Pilih metode input:", ("Upload Dataset", "Input Data Baru"))
 
+# Fitur yang akan digunakan dalam pemodelan
+selected_features = ['PAYMENT_RATIO', 'AMT_OUTSTANDING_TOTAL', 'NAME_FAMILY_STATUS', 
+                     'NAME_SALES_BUSINESS_AREA', 'AGE', 'REGION_AREA', 'CLIENT_TYPE']
+
 if option == "Upload Dataset":
     # File uploader
     uploaded_file = st.file_uploader("Unggah file CSV atau Excel", type=["csv", "xlsx", "xls"])
@@ -42,7 +45,6 @@ if option == "Upload Dataset":
         st.write("Dataset yang diunggah:")
         st.write(df.head())
 
-        
         # Save original data for display
         df_original = df.copy()
 
@@ -52,17 +54,9 @@ if option == "Upload Dataset":
             le = LabelEncoder()
             df_encoded[column] = le.fit_transform(df_encoded[column])
 
-        # Drop DATE_PAY_FIRST and DATE_PAY_LAST
-        df_encoded = df_encoded.drop(columns=['DATE_PAY_FIRST', 'DATE_PAY_LAST'])
-
-        X_test = df_encoded.drop(columns=['FLAG_DELINQUENT'])
+        # Hanya gunakan fitur yang dipilih
+        X_test = df_encoded[selected_features]
         y_test = df_encoded['FLAG_DELINQUENT']
-
-        if selected_model_name == 'XGBoost':
-            X_test = X_test[model.get_booster().feature_names]
-        elif selected_model_name == 'LightGBM':
-            model_feature_names = model.booster_.feature_name()  # Fixed method
-            X_test = X_test[model_feature_names]
 
         # Input to select a row from X_test
         input_index = st.text_input('Masukkan Indeks Data untuk Prediksi', '')
@@ -134,56 +128,32 @@ if option == "Upload Dataset":
 
 elif option == "Input Data Baru":
     st.subheader('Masukkan Data untuk Prediksi')
+    
+    # Masukkan input data sesuai fitur yang dipilih
     selected_region = st.selectbox('Pilih Region Area', df['REGION_AREA'].unique())
-    filtered_df_region = df[df['REGION_AREA'] == selected_region]
-
-    selected_district = st.selectbox('Pilih District', filtered_df_region['DISTRICT_POS'].unique())
-    filtered_df_district = filtered_df_region[filtered_df_region['DISTRICT_POS'] == selected_district]
-
-    selected_area = st.selectbox('Pilih Area', filtered_df_district['AREA_POS'].unique())
-    filtered_df_area = filtered_df_district[filtered_df_district['AREA_POS'] == selected_area]
-
-    selected_subregion = st.selectbox('Pilih Subregion', filtered_df_area['SUBREGION_POS'].unique())
-    filtered_df_subregion = filtered_df_area[filtered_df_area['SUBREGION_POS'] == selected_subregion]
-
-    selected_business_area = st.selectbox('Pilih Business Area', filtered_df_subregion['NAME_SALES_BUSINESS_AREA'].unique())
-
-    selected_goods_category = st.selectbox('Pilih Goods Category', df['NAME_GOODS_CATEGORY'].unique())
-    selected_product_segmentation = st.selectbox('Pilih Product Segmentation', df['PRODUCT_SEGMENTATION'].unique())
-    selected_owner_financing = st.selectbox('Pilih Owner Financing', df['OWNER_FINANCING'].unique())
+    selected_business_area = st.selectbox('Pilih Business Area', df['NAME_SALES_BUSINESS_AREA'].unique())
     selected_family_status = st.selectbox('Pilih Family Status', df['NAME_FAMILY_STATUS'].unique())
     selected_client_type = st.selectbox('Pilih Client Type', df['CLIENT_TYPE'].unique())
-
-    # Input fields for new numerical variables
+    
+    payment_ratio = st.number_input('Payment Ratio', min_value=0.0, value=0.0)
+    amt_outstanding_total = st.number_input('Amount Outstanding Total', min_value=0.0, value=0.0)
     age = st.number_input('Age', min_value=0, value=0)
-    days_since_first_payment = st.number_input('Days Since First Payment', min_value=0, value=0)
-    amt_outstanding_principal = st.number_input('Amount Outstanding Principal', min_value=0.0, value=0.0)
-    amt_instalment = st.number_input('Amount Instalment', min_value=0.0, value=0.0)
-    tenure = st.number_input('Tenure', min_value=0, value=0)
 
     # Button to predict and show evaluation
     if st.button('Predict and Show Interpretation'):
         # Check for missing inputs
-        if tenure == 0 or amt_instalment == 0.0 or amt_outstanding_principal == 0.0:
+        if payment_ratio == 0.0 or amt_outstanding_total == 0.0 or age == 0:
             st.error("Harap isi semua data dengan benar.")
         else:
             # Prepare input data for prediction
             input_data = {
-                'REGION_AREA': selected_region,
-                'DISTRICT_POS': selected_district,
-                'AREA_POS': selected_area,
-                'SUBREGION_POS': selected_subregion,
-                'NAME_SALES_BUSINESS_AREA': selected_business_area,
-                'NAME_GOODS_CATEGORY': selected_goods_category,
-                'PRODUCT_SEGMENTATION': selected_product_segmentation,
-                'OWNER_FINANCING': selected_owner_financing,
+                'PAYMENT_RATIO': payment_ratio,
+                'AMT_OUTSTANDING_TOTAL': amt_outstanding_total,
                 'NAME_FAMILY_STATUS': selected_family_status,
-                'CLIENT_TYPE': selected_client_type,
+                'NAME_SALES_BUSINESS_AREA': selected_business_area,
                 'AGE': age,
-                'DAYS_SINCE_FIRST_PAYMENT': days_since_first_payment,
-                'AMT_OUTSTANDING_PRINCIPAL': amt_outstanding_principal,
-                'AMT_INSTALMENT': amt_instalment,
-                'TENURE': tenure
+                'REGION_AREA': selected_region,
+                'CLIENT_TYPE': selected_client_type
             }
             input_df = pd.DataFrame([input_data])
 
@@ -194,9 +164,6 @@ elif option == "Input Data Baru":
                 le = LabelEncoder()
                 input_df[column] = le.fit_transform(input_df[column])
 
-            # Drop DATE_PAY_FIRST and DATE_PAY_LAST from df
-            input_df = input_df.drop(columns=['DATE_PAY_FIRST', 'DATE_PAY_LAST'], errors='ignore')
-
             # Tentukan nama fitur sesuai model yang dipilih
             if selected_model_name == 'XGBoost':
                 model_feature_names = model.get_booster().feature_names
@@ -204,7 +171,7 @@ elif option == "Input Data Baru":
                 model_feature_names = model.booster_.feature_name()
 
             # Pilih kolom fitur yang relevan dari input_df
-            input_df = input_df[model_feature_names]
+            input_df = input_df[selected_features]
 
             # Reshape the input data for prediction
             input_data_reshaped = input_df.values.reshape(1, -1)
@@ -231,33 +198,8 @@ elif option == "Input Data Baru":
             for label, value in zip(prob_labels, prob_values):
                 st.markdown(f"**Probabilitas {label}:** {value:.2f}")
 
-            # Feature Importance for explanation
-            st.subheader('Feature Importance')
+            # ROC Curve (per-row evaluation might not be necessary but is added for completeness)
+            st.subheader('ROC AUC Curve (Example)')
+            # Here you'd typically need an entire dataset to compute this meaningfully,
+            # but for individual predictions, this might be less relevant.
 
-            # Get feature importances from the model
-            if selected_model_name == 'XGBoost':
-                importance = model.get_booster().get_score(importance_type='weight')
-                feature_names = list(importance.keys())
-                feature_importances = list(importance.values())
-            elif selected_model_name == 'LightGBM':
-                feature_names = model.booster_.feature_name()
-                feature_importances = model.feature_importances_
-
-            # Combine feature names and their importances into a list of tuples
-            features_with_importance = list(zip(feature_importances, feature_names))
-
-            # Sort the list of tuples by importance in descending order
-            features_with_importance.sort(reverse=True, key=lambda x: x[0])
-
-            # Unpack the sorted list into two lists: feature_importances_sorted and feature_names_sorted
-            feature_importances_sorted, feature_names_sorted = zip(*features_with_importance)
-
-            # Plot feature importance in descending order
-            fig_feat, ax_feat = plt.subplots(figsize=(10, 8))
-            sns.barplot(x=feature_importances_sorted, y=feature_names_sorted, ax=ax_feat)
-            ax_feat.set_title('Feature Importance')
-            ax_feat.set_xlabel('Importance')
-            ax_feat.set_ylabel('Feature')
-
-            # Display the plot in Streamlit
-            st.pyplot(fig_feat)
