@@ -157,7 +157,7 @@ elif option == "Input Data Baru":
                 'CLIENT_TYPE': selected_client_type
             }
             if amt_outstanding_total > 15000000:
-                payment_ratio /= 2
+                payment_ratio -= 2
             input_df = pd.DataFrame([input_data])
 
             # Encode categorical variables
