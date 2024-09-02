@@ -198,8 +198,34 @@ elif option == "Input Data Baru":
             for label, value in zip(prob_labels, prob_values):
                 st.markdown(f"**Probabilitas {label}:** {value:.2f}")
 
-            # ROC Curve (per-row evaluation might not be necessary but is added for completeness)
-            st.subheader('ROC AUC Curve (Example)')
-            # Here you'd typically need an entire dataset to compute this meaningfully,
-            # but for individual predictions, this might be less relevant.
+            # Feature Importance
+            st.subheader('Feature Importance')
+            
+            # Mendapatkan importance dari fitur model yang digunakan (misalnya XGBoost atau LightGBM)
+            if selected_model_name == 'XGBoost':
+                importance = model.get_booster().get_score(importance_type='weight')
+                feature_names = list(importance.keys())
+                feature_importances = list(importance.values())
+            elif selected_model_name == 'LightGBM':
+                feature_importances = model.feature_importances_
+                feature_names = model.booster_.feature_name()
+            
+            # Membuat DataFrame untuk menampilkan feature importance
+            feature_importance_df = pd.DataFrame({
+                'Feature': feature_names,
+                'Importance': feature_importances
+            })
+            
+            # Mengurutkan fitur berdasarkan pentingnya
+            feature_importance_df = feature_importance_df.sort_values(by='Importance', ascending=False)
+            
+            # Menampilkan feature importance dalam bentuk tabel
+            st.dataframe(feature_importance_df)
+            
+            # Visualisasi feature importance dengan bar chart
+            fig_feat, ax_feat = plt.subplots()
+            ax_feat.barh(feature_importance_df['Feature'], feature_importance_df['Importance'], align='center')
+            ax_feat.set_xlabel('Feature Importance')
+            ax_feat.set_title('Feature Importance')
+            st.pyplot(fig_feat)
 
